@@ -10,7 +10,6 @@
 	interface KeyboardSettings {
 		theme: 'dark' | 'light' | 'neon';
 		keyShape: 'rounded' | 'square' | 'circular';
-		is3D: boolean;
 		primaryColor: string;
 		hoverColor: string;
 		textColor: string;
@@ -19,9 +18,6 @@
 	interface LineSettings {
 		color: string;
 		width: number;
-		style: 'solid' | 'dashed' | 'dotted';
-		glow: boolean;
-		dotSize: number;
 	}
 
 	interface Settings {
@@ -59,17 +55,13 @@
 		keyboard: {
 			theme: 'dark', // dark, light, neon - changes overall color scheme
 			keyShape: 'rounded', // rounded, square, circular - key border radius
-			is3D: false, // adds shadow and hover scale effects
 			primaryColor: 'dark', // background color for dark theme keys
 			hoverColor: '#4b5563', // hover state color
-			textColor: '#ffffff' // key text color
+			textColor: '#E8E8E8' // key text color
 		},
 		lines: {
 			color: '#ffffff', // line stroke color
-			width: 4, // line thickness in pixels
-			style: 'solid', // solid, dashed, dotted - line pattern
-			glow: true, // adds shadow blur effect
-			dotSize: 5 // size of dots at key positions (currently not drawn)
+			width: 4 // line thickness in pixels
 		}
 	});
 
@@ -278,23 +270,6 @@
 		ctx.lineWidth = settings.lines.width;
 		ctx.lineCap = 'round';
 
-		// Apply glow effect if enabled
-		if (settings.lines.glow) {
-			ctx.shadowColor = settings.lines.color;
-			ctx.shadowBlur = 10;
-		} else {
-			ctx.shadowBlur = 0;
-		}
-
-		// Set line dash pattern based on style
-		if (settings.lines.style === 'dashed') {
-			ctx.setLineDash([10, 5]);
-		} else if (settings.lines.style === 'dotted') {
-			ctx.setLineDash([2, 8]);
-		} else {
-			ctx.setLineDash([]);
-		}
-
 		// Draw connecting lines between consecutive letters
 		if (typedSequence.length >= 2) {
 			ctx.beginPath();
@@ -325,11 +300,6 @@
 
 		let svgContent = `<svg width="${canvas?.width}" height="${canvas?.height}" xmlns="http://www.w3.org/2000/svg">`;
 
-		// Add glow filter definition if enabled
-		if (settings.lines.glow) {
-			svgContent += `<defs><filter id="glow"><feGaussianBlur stdDeviation="3" result="coloredBlur"/><feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`;
-		}
-
 		// Build path data for connecting lines
 		let pathData = '';
 		for (let i = 0; i < typedSequence.length - 1; i++) {
@@ -348,21 +318,14 @@
 		}
 
 		// Apply line styling to SVG path
-		const strokeDasharray =
-			settings.lines.style === 'dashed'
-				? '10,5'
-				: settings.lines.style === 'dotted'
-					? '2,8'
-					: 'none';
-		const filter = settings.lines.glow ? 'filter="url(#glow)"' : '';
 
-		svgContent += `<path d="${pathData}" stroke="${settings.lines.color}" stroke-width="${settings.lines.width}" stroke-dasharray="${strokeDasharray}" fill="none" ${filter}/>`;
+		svgContent += `<path d="${pathData}" stroke="${settings.lines.color}" stroke-width="${settings.lines.width}" fill="none" />`;
 
 		// Add dots at key positions (currently not visible in UI)
 		typedSequence.forEach((letter) => {
 			const pos = keyPositions[letter];
 			if (pos) {
-				svgContent += `<circle cx="${pos.x}" cy="${pos.y}" r="${settings.lines.dotSize}" fill="${settings.lines.color}" ${filter}/>`;
+				svgContent += `<circle cx="${pos.x}" cy="${pos.y}"  fill="${settings.lines.color}"/>`;
 			}
 		});
 
@@ -388,20 +351,6 @@
 		link.click();
 	}
 
-	// ===== UTILITY FUNCTIONS =====
-	// Resets the entire application state
-	function clearCanvas(): void {
-		typedSequence = [];
-		currentText = '';
-		showExportButtons = false;
-		keyboardOpacity = 1;
-		clearTimeout(fadeTimeout);
-		clearTimeout(exportTimeout);
-		if (ctx && canvas) {
-			ctx.clearRect(0, 0, canvas.width, canvas.height);
-		}
-	}
-
 	// ===== SETTINGS MANAGEMENT =====
 	// Toggles settings panel visibility
 	function toggleSettings(): void {
@@ -419,7 +368,7 @@
 	// ===== DYNAMIC STYLING =====
 	// Generates CSS classes for keyboard keys based on current settings
 	function getKeyClasses(): string {
-		let baseClasses = 'key w-14 h-10 border font-mono transition-all duration-150 ';
+		let baseClasses = 'key w-14 h-10 border rounded-lg font-mono transition-all duration-150 ';
 
 		// Apply theme-based colors
 		if (settings.keyboard.theme === 'light') {
@@ -440,11 +389,6 @@
 			baseClasses += 'rounded ';
 		}
 
-		// Apply 3D effects
-		if (settings.keyboard.is3D) {
-			baseClasses += 'shadow-lg transform hover:scale-105 ';
-		}
-
 		return baseClasses;
 	}
 
@@ -459,10 +403,7 @@
 
 <svelte:window onkeydown={handleKeyPress} />
 
-<main
-	class="relative min-h-screen overflow-hidden bg-black text-white"
-	style="background-color: #1a1a1a;"
->
+<main class="relative min-h-screen overflow-hidden bg-black text-gray-300">
 	<canvas bind:this={canvas} class="pointer-events-none absolute inset-0 z-30"></canvas>
 
 	<button
@@ -512,18 +453,6 @@
 							</select>
 						</div>
 
-						<div>
-							<label class="flex items-center space-x-2">
-								<input
-									type="checkbox"
-									bind:checked={settings.keyboard.is3D}
-									onchange={updateSettings}
-									class="rounded"
-								/>
-								<span>3D Effect</span>
-							</label>
-						</div>
-
 						{#if settings.keyboard.theme === 'dark'}
 							<div>
 								<label for="primary-color" class="mb-2 block text-sm font-medium"
@@ -570,47 +499,6 @@
 								class="w-full"
 							/>
 						</div>
-
-						<div>
-							<label for="line-style" class="mb-2 block text-sm font-medium">Style</label>
-							<select
-								id="line-style"
-								bind:value={settings.lines.style}
-								onchange={updateSettings}
-								class="w-full rounded bg-gray-800 p-2"
-							>
-								<option value="solid">Solid</option>
-								<option value="dashed">Dashed</option>
-								<option value="dotted">Dotted</option>
-							</select>
-						</div>
-
-						<div>
-							<label class="flex items-center space-x-2">
-								<input
-									type="checkbox"
-									bind:checked={settings.lines.glow}
-									onchange={updateSettings}
-									class="rounded"
-								/>
-								<span>Glow Effect</span>
-							</label>
-						</div>
-
-						<div>
-							<label for="dot-size" class="mb-2 block text-sm font-medium"
-								>Dot Size: {settings.lines.dotSize}px</label
-							>
-							<input
-								id="dot-size"
-								type="range"
-								min="2"
-								max="10"
-								bind:value={settings.lines.dotSize}
-								onchange={updateSettings}
-								class="h-10 w-full rounded"
-							/>
-						</div>
 					</div>
 				</div>
 
@@ -643,7 +531,7 @@
 			role="presentation"
 		>
 			{#each keyboardLayout as row, rowIndex}
-				<div class="mb-2 flex justify-center gap-2">
+				<div class="mb-1 flex justify-center gap-1">
 					{#each row as letter}
 						<button
 							class={getKeyClasses()}
